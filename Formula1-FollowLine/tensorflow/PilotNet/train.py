@@ -12,6 +12,7 @@ from utils.pilotnet import pilotnet_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, CSVLogger
 from tensorflow.python.keras.saving import hdf5_format
 
+import tensorflow as tf
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -20,6 +21,7 @@ def parse_args():
     parser.add_argument("--preprocess", action='append', default=None,
                         help="preprocessing information: choose from crop/nocrop and normal/extreme")
     parser.add_argument("--data_augs", action='append', type=bool, default=None, help="Data Augmentations")
+    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate for Policy Net")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of Epochs")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size")
     parser.add_argument("--img_shape", type=str, default=(200, 66, 3), help="Image shape")
@@ -48,7 +50,7 @@ if __name__ == "__main__":
         data_type = 'extreme'
     else:
         data_type = 'no_extreme'
-
+    ##!! All dataset alloted to val/test
     images_train, annotations_train, images_val, annotations_val = process_dataset(path_to_data, type_image,
                                                                                                data_type, img_shape)
 
@@ -65,15 +67,19 @@ if __name__ == "__main__":
     print(hparams)
 
     model_name = 'pilotnet_model'
-    model = pilotnet_model(img_shape, learning_rate)
+    # model = pilotnet_model(img_shape, learning_rate)
     model_filename = timestr + '_pilotnet_model_100_all_n_extreme_3_albumentations_no_crop'
     model_file = model_filename + '.h5'
 
-    AUGMENTATIONS_TRAIN, AUGMENTATIONS_TEST = get_augmentations(data_augs)
+    ##!! load model
+    model = tf.keras.models.load_model('../trained_models/pilotnet.h5')
+    print("Model loaded successfully!!")
 
+    AUGMENTATIONS_TRAIN, AUGMENTATIONS_TEST = get_augmentations(data_augs)
+    ##!! Not needed
     # Training data
-    train_gen = DatasetSequence(images_train, annotations_train, hparams['batch_size'],
-                                augmentations=AUGMENTATIONS_TRAIN)
+    # train_gen = DatasetSequence(images_train, annotations_train, hparams['batch_size'],
+                                # augmentations=AUGMENTATIONS_TRAIN)
 
     # Validation data
     valid_gen = DatasetSequence(images_val, annotations_val, hparams['batch_size'],
@@ -91,18 +97,18 @@ if __name__ == "__main__":
     print(model)
     model.build(img_shape)
     print(model.summary())
-
+    ##!! Not needed
     # Training
-    model.fit(
-        train_gen,
-        epochs=hparams['n_epochs'],
-        verbose=2,
-        validation_data=valid_gen,
-        # workers=2, use_multiprocessing=False,
-        callbacks=[tensorboard_callback, earlystopping, cp_callback, csv_logger])
-
+    # model.fit(
+    #     train_gen,
+    #     epochs=hparams['n_epochs'],
+    #     verbose=2,
+    #     validation_data=valid_gen,
+    #     # workers=2, use_multiprocessing=False,
+    #     callbacks=[tensorboard_callback, earlystopping, cp_callback, csv_logger])
+    ##!! Not needed
     # Save model
-    model.save(model_file)
+    # model.save(model_file)
 
     # Evaluate model
     score = model.evaluate(valid_gen, verbose=0)
@@ -111,25 +117,25 @@ if __name__ == "__main__":
     print('Test loss: ', score[0])
     print('Test mean squared error: ', score[1])
     print('Test mean absolute error: ', score[2])
-
-    model_path = model_file
-    # Save model metadata
-    with h5py.File(model_path, mode='w') as f:
-        hdf5_format.save_model_to_hdf5(model, f)
-        f.attrs['experiment_name'] = ''
-        f.attrs['experiment_description'] = ''
-        f.attrs['batch_size'] = hparams['batch_size']
-        f.attrs['nb_epoch'] = hparams['n_epochs']
-        f.attrs['model'] = model_name
-        f.attrs['img_shape'] = img_shape
-        f.attrs['normalized_dataset'] = True
-        f.attrs['sequences_dataset'] = True
-        f.attrs['gpu_trained'] = True
-        f.attrs['data_augmentation'] = True
-        f.attrs['extreme_data'] = False
-        f.attrs['split_test_train'] = 0.30
-        f.attrs['instances_number'] = len(annotations_train)
-        f.attrs['loss'] = score[0]
-        f.attrs['mse'] = score[1]
-        f.attrs['mae'] = score[2]
-        f.attrs['csv_path'] = model_filename + '.csv'
+    ##!! Not needed
+    # model_path = model_file
+    # # Save model metadata
+    # with h5py.File(model_path, mode='w') as f:
+    #     hdf5_format.save_model_to_hdf5(model, f)
+    #     f.attrs['experiment_name'] = ''
+    #     f.attrs['experiment_description'] = ''
+    #     f.attrs['batch_size'] = hparams['batch_size']
+    #     f.attrs['nb_epoch'] = hparams['n_epochs']
+    #     f.attrs['model'] = model_name
+    #     f.attrs['img_shape'] = img_shape
+    #     f.attrs['normalized_dataset'] = True
+    #     f.attrs['sequences_dataset'] = True
+    #     f.attrs['gpu_trained'] = True
+    #     f.attrs['data_augmentation'] = True
+    #     f.attrs['extreme_data'] = False
+    #     f.attrs['split_test_train'] = 0.30
+    #     f.attrs['instances_number'] = len(annotations_train)
+    #     f.attrs['loss'] = score[0]
+    #     f.attrs['mse'] = score[1]
+    #     f.attrs['mae'] = score[2]
+    #     f.attrs['csv_path'] = model_filename + '.csv'
