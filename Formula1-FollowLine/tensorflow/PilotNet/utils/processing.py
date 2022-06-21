@@ -1532,7 +1532,7 @@ def get_images_and_annotations(path_to_data, type_image, img_shape, data_type):
                     images_montmelo + \
                     images_montreal
 
-    array_annotations = array_annotations_simple_circuit + \
+    array_annotations = array_annotations_simple_circuit  + \
                         array_annotations_montmelo + \
                         array_annotations_montreal
 
@@ -1540,24 +1540,27 @@ def get_images_and_annotations(path_to_data, type_image, img_shape, data_type):
 
 
 def separate_dataset_into_train_validation(array_x, array_y):
-    images_train, images_validation, annotations_train, annotations_validation = train_test_split(array_x, array_y,
-                                                                                                  test_size=1, #0.30,
-                                                                                                  random_state=42,
-                                                                                                  shuffle=True)
+    # images_train, images_validation, annotations_train, annotations_validation = train_test_split(array_x, array_y,
+    #                                                                                               test_size=0.30,
+    #                                                                                               random_state=42,
+    #                                                                                               shuffle=True)
+    
+    ##!! Assign all to validation
+    images_train, images_validation, annotations_train, annotations_validation = [], array_x, [], array_y
 
     print('Images train -> ' + str(len(images_train)))
     print('Images validation -> ' + str(len(images_validation)))
     print('Annotations train -> ' + str(len(annotations_train)))
     print('Annotations validation -> ' + str(len(annotations_validation)))
     # Adapt the data
-    images_train = np.stack(images_train, axis=0)
-    annotations_train = np.stack(annotations_train, axis=0)
+    # images_train = np.stack(images_train, axis=0)
+    # annotations_train = np.stack(annotations_train, axis=0)
     images_validation = np.stack(images_validation, axis=0)
     annotations_validation = np.stack(annotations_validation, axis=0)
 
-    print('Images train -> ' + str(images_train.shape))
+    # print('Images train -> ' + str(images_train.shape))
     print('Images validation -> ' + str(images_validation.shape))
-    print('Annotations train -> ' + str(annotations_train.shape))
+    # print('Annotations train -> ' + str(annotations_train.shape))
     print('Annotations validation -> ' + str(annotations_validation.shape))
 
     return images_train, annotations_train, images_validation, annotations_validation

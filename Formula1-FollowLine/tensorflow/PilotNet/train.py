@@ -13,6 +13,8 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoa
 from tensorflow.python.keras.saving import hdf5_format
 
 import tensorflow as tf
+import numpy as np
+from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -117,6 +119,20 @@ if __name__ == "__main__":
     print('Test loss: ', score[0])
     print('Test mean squared error: ', score[1])
     print('Test mean absolute error: ', score[2])
+
+
+
+    inf_time = []
+    r_idx = np.random.randint(0, len(images_val), 1000)
+
+    for i in tqdm(r_idx):
+        img = np.expand_dims(images_val[i], axis=0)
+        start_t = time.time()
+        pred = model.predict(img)
+        inf_time.append(time.time() - start_t)
+
+    print('Inference time:', np.mean(inf_time))
+
     ##!! Not needed
     # model_path = model_file
     # # Save model metadata
