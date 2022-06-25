@@ -1532,7 +1532,7 @@ def get_images_and_annotations(path_to_data, type_image, img_shape, data_type):
                     images_montmelo + \
                     images_montreal
 
-    array_annotations = array_annotations_simple_circuit  + \
+    array_annotations = array_annotations_simple_circuit + \
                         array_annotations_montmelo + \
                         array_annotations_montreal
 

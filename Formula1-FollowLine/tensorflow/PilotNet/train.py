@@ -1,6 +1,7 @@
 import os
 import argparse
 import datetime
+from tabnanny import verbose
 import time
 import h5py
 
@@ -15,6 +16,7 @@ from tensorflow.python.keras.saving import hdf5_format
 import tensorflow as tf
 import numpy as np
 from tqdm import tqdm
+import torch
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -30,6 +32,30 @@ def parse_args():
 
     args = parser.parse_args()
     return args
+
+
+def profile_inf_time(img_expanded, model):
+    starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+    repetitions = 300
+    timings=np.zeros((repetitions,1))
+    #GPU-WARM-UP
+    for _ in range(10):
+        _ = model.predict(img_expanded, verbose=0)
+    # MEASURE PERFORMANCE
+    for rep in range(repetitions):
+        starter.record()
+        _ = model.predict(img_expanded, verbose=0)
+        ender.record()
+        # WAIT FOR GPU SYNC
+        torch.cuda.synchronize()
+        curr_time = starter.elapsed_time(ender)
+        timings[rep] = curr_time
+    mean_syn = np.sum(timings) / repetitions
+    std_syn = np.std(timings)
+    time.sleep(1) # to avoid interference between each execution
+    return mean_syn
+
+
 
 
 if __name__ == "__main__":
@@ -120,18 +146,27 @@ if __name__ == "__main__":
     print('Test mean squared error: ', score[1])
     print('Test mean absolute error: ', score[2])
 
-
-
-    inf_time = []
+    inf_time_time = []
+    inf_time_perf = []
     r_idx = np.random.randint(0, len(images_val), 1000)
 
     for i in tqdm(r_idx):
         img = np.expand_dims(images_val[i], axis=0)
         start_t = time.time()
-        pred = model.predict(img)
-        inf_time.append(time.time() - start_t)
+        pred = model.predict(img, verbose=0)
+        inf_time_time.append(time.time() - start_t)
 
-    print('Inference time:', np.mean(inf_time))
+    
+    for i in tqdm(r_idx):
+        img = np.expand_dims(images_val[i], axis=0)
+        start_t = time.perf_counter()
+        pred = model.predict(img, verbose=0)
+        inf_time_perf.append(time.perf_counter() - start_t)
+
+    img = np.expand_dims(images_val[np.random.randint(len(images_val))], axis=0)
+    curr_time = profile_inf_time(img, model)
+
+    print('Inference time:', np.mean(inf_time_time), np.mean(inf_time_perf), curr_time * 0.001)
 
     ##!! Not needed
     # model_path = model_file
