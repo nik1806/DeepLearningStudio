@@ -19,9 +19,10 @@ def parse_args():
     parser.add_argument("--data_dir", action='append', help="Directory to find Data")
     parser.add_argument("--preprocess", action='append', default=None,
                         help="preprocessing information: choose from crop/nocrop and normal/extreme")
-    parser.add_argument("--data_augs", action='append', type=bool, default=None, help="Data Augmentations")
+    parser.add_argument("--data_augs", type=int, default=0, help="Data Augmentations: 0=No / 1=Normal / 2=Normal+Weather changes")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of Epochs")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size")
+    parser.add_argument("--learning_rate", type=float, default=0.00001, help="Learning rate for Policy Net")
     parser.add_argument("--img_shape", type=str, default=(200, 66, 3), help="Image shape")
 
     args = parser.parse_args()
@@ -36,6 +37,7 @@ if __name__ == "__main__":
     data_augs = args.data_augs
     num_epochs = args.num_epochs
     batch_size = args.batch_size
+    learning_rate = args.learning_rate
     img_shape = tuple(map(int, args.img_shape.split(',')))
 
     if 'no_crop' in preprocess:
@@ -64,7 +66,7 @@ if __name__ == "__main__":
     print(hparams)
 
     model_name = 'memDCCP'
-    model = memDCCP(img_shape)
+    model = memDCCP(img_shape, learning_rate)
     model_filename = timestr + '_memDCCP_new_dataset_opencv'
     model_file = model_filename + '.h5'
 
