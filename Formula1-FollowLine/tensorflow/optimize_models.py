@@ -3,13 +3,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import time
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
+# from tensorflow.python.saved_model import tag_constants
 # from tensorflow.python.compiler.tensorrt import trt_convert as trt
-from tensorflow.python.saved_model import tag_constants
-from tensorflow.keras.applications.resnet50 import ResNet50
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
+# from tensorflow.keras.applications.resnet50 import ResNet50
+# from tensorflow.keras.preprocessing import image
+# from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
 
 import pathlib
 import argparse
@@ -59,17 +60,17 @@ def measure_mse(tflite_model, images_val, valid_set, batch_size):
     output_index = interpreter.get_output_details()[0]["index"]
     
     metric = 0.0
-    for test_images, test_labels in tqdm(valid_set):
-        # Pre-processing: add batch dimension and convert to float32 to match with
-        # the model's input data format.
+    for idx in tqdm(range((len(valid_set)-1))):
+        test_images, test_labels = valid_set[idx]
+        # Pre-processing
         interpreter.set_tensor(input_index, test_images)
         # Run inference.
         interpreter.invoke()
         # Post-processing
-        output = interpreter.tensor(output_index)
-        metric += tf.keras.losses.mse(test_labels, output)
+        output = interpreter.get_tensor(output_index)
+        metric += np.mean(tf.keras.losses.mse(test_labels, output).numpy())
 
-    return metric/len(valid_set)
+    return metric/(len(valid_set)-1)
 
 
 def evaluate_model(model_path, tflite_model, valid_set, images_val, batch_size):
@@ -110,17 +111,23 @@ def convert_baseline(model_path, model_name, tflite_models_dir, valid_set, image
     print("Model size (MB):", model_size)
     print("MSE:", mse)
     print("Inference time (s):", inf_time)
+    return model_size, mse, inf_time
 
 
-def dynamic_range_quantization(model_path, model_name, tflite_models_dir, valid_set, images_val):
+def dynamic_range_quantization(model_path, model_name, tflite_models_dir, valid_set, images_val, batch_size):
     # Post-training dynamic range quantization
     model = tf.keras.models.load_model(model_path)
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_quant_model = converter.convert()
+    tflite_model = converter.convert()
     tflite_model_quant_file = tflite_models_dir/f"{model_name}_model_quant.tflite"
-    tflite_model_quant_file.write_bytes(tflite_quant_model) # save model
-    evaluate_model(model_path, tflite_quant_model, valid_set, images_val)
+    tflite_model_quant_file.write_bytes(tflite_model) # save model
+    model_size, mse, inf_time = evaluate_model(model_path, tflite_model, valid_set, images_val, batch_size)
+    print("********** Dynamic range Q stats **********")
+    print("Model size (MB):", model_size)
+    print("MSE:", mse)
+    print("Inference time (s):", inf_time)
+    return model_size, mse, inf_time
 
 def load_data(args):
 
@@ -163,7 +170,7 @@ def parse_args():
     parser.add_argument('--model_name', default='pilotnet', help="Name of model" )
     # parser.add_argument('--res_path', default='Result_Model_3.csv', help="Path(+filename) to store the results" )
     parser.add_argument('--eval_base', type=bool, default=False, help="If set to True, it will calculate accuracy, size and inference time for original model.")
-    parser.add_argument("--tech", action='append', help="Techniques to apply for model compression. Options are: \n"+
+    parser.add_argument("--tech", action='append', default=[], help="Techniques to apply for model compression. Options are: \n"+
                                "'dynamic_quan', 'float16_quan', 'full_int_quan', and 'all' .")
     
     args = parser.parse_args()
@@ -194,8 +201,15 @@ if __name__ == '__main__':
     # load datasets
     train_set, valid_set, images_val = load_data(args)
 
+    results = []
+
     if args.eval_base:
-        convert_baseline(args.model_path, args.model_name, tflite_models_dir, valid_set, images_val, args.batch_size) 
+        res = convert_baseline(args.model_path, args.model_name, tflite_models_dir, valid_set, images_val, args.batch_size) 
+        results.append(("Baseline",) + res)
     if "dynamic_quan" in args.tech or 'all' in args.tech : 
-        dynamic_range_quantization(args.model_path, args.model_name, tflite_models_dir, valid_set, images_val)
-    
+        res = dynamic_range_quantization(args.model_path, args.model_name, tflite_models_dir, valid_set, images_val, args.batch_size)
+        results.append(("Dynamic Range Q",) + res)
+
+    df = pd.DataFrame(results)
+    df.columns = ["Method", "Model size (MB)", "MSE", "Inference time (s)"]
+    df.to_csv("model_evaluation.csv", index=False)
